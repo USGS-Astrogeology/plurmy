@@ -12,7 +12,7 @@ slurm_script = textwrap.dedent("""\
                               #SBATCH -t {}
                               #SBATCH -o {}
                               #SBATCH -p {}
-                              #SBATCH --exclude=neb[13-20],gpu1
+                              #SBATCH --exclude=neb[17-20],gpu1
                               source activate {}
                               {}""")
 
@@ -24,7 +24,7 @@ slurm_array = textwrap.dedent("""\
                               #SBATCH -J {}
                               #SBATCH -t {}
                               #SBATCH -p {}
-                              #SBATCH --exclude=neb[13-20],gpu1
+                              #SBATCH --exclude=neb[17-20],gpu1
                               source activate {}
                               which python
                               {}
@@ -42,7 +42,6 @@ def spawn(command, name='AutoCNet', time='01:00:00', outdir='/home/jlaura/autocn
     process.stdin.write(str.encode(job_string))
     out, err = process.communicate()
     if err:
-        print('ERROR: ', err)
         return False
 
     # If the job log has the %j character, replace it with the actual job id
@@ -63,7 +62,6 @@ def spawn_jobarr(command, njobs, name='AutoCNet', time='01:00:00',mem=4096, queu
     process.stdin.write(str.encode(job_string))
     out, err = process.communicate()
     if err:
-        print('ERROR: ', err)
         return False
     return job_string
 
