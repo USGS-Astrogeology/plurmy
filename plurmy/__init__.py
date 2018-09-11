@@ -35,7 +35,6 @@ def spawn(command, name='AutoCNet', time='01:00:00', outdir='/home/jlaura/autocn
     f : str
         file path
     """
-
     process = subprocess.Popen(['sbatch'], stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE)
     job_string = slurm_script.format(mem, name, time, outdir, queue, env, command)
