@@ -5,7 +5,7 @@ import datetime
 #TODO: slurm scripts to config
 
 slurm_script = textwrap.dedent("""\
-                              #!/bin/bash -l
+                              #!/bin/bash
                               #SBATCH -n 1
                               #SBATCH --mem-per-cpu {}
                               #SBATCH -J {}
@@ -17,7 +17,7 @@ slurm_script = textwrap.dedent("""\
                               {}""")
 
 slurm_array = textwrap.dedent("""\
-                              #!/bin/bash -l
+                              #!/bin/bash
                               #SBATCH -n 1
                               #SBATCH --mem-per-cpu {}
                               #SBATCH -o {}
