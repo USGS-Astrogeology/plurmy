@@ -41,26 +41,26 @@ def test_spawn(job, command, output, err, kwargs, expected):
         else:
             assert js is False
 
-@pytest.mark.parametrize("command, njobs, output, err, kwargs, expected",
-                         [('foo', 2, '', None, {}, 'foo'), # Check command is passing
-                          ('foo', 3, '', None, {'name':'SpecialJob'}, 'SpecialJob'),
-                          ('foo', 4, '', None, {'time':'00:00:60'}, '00:00:60'),
-                          ('foo', 5, '', None, {'outdir':'/mi/casa'}, '/mi/casa'),
-                          ('foo', 1, '', None, {'mem':4096}, '4096'),
-                          ('foo', 6, '', None, {'queue':'longall'}, 'longall'),
-                          ('source activate krc\nfoo', 6, '', None, {'env':'krc'}, 'krc'),
-                          ('foo', 2, '', 'error', {}, 'error')
+@pytest.mark.parametrize("command, array, output, err, kwargs, expected",
+                         [('foo', "1-2", '', None, {}, 'foo'), # Check command is passing
+                          ('foo', "1-3, 5-8", '', None, {'name':'SpecialJob'}, 'SpecialJob'),
+                          ('foo', "1-400%2", '', None, {'time':'00:00:60'}, '00:00:60'),
+                          ('foo', "1-50:3", '', None, {'outdir':'/mi/casa'}, '/mi/casa'),
+                          ('foo', "1", '', None, {'mem':4096}, '4096'),
+                          ('foo', "1-6", '', None, {'queue':'longall'}, 'longall'),
+                          ('source activate krc\nfoo', "1-6", '', None, {'env':'krc'}, 'krc'),
+                          ('foo', "1-2", '', 'error', {}, 'error'),
+                          ('foo', "1-2", '', None, {'spread_job':''}, 'spread-job')
                          ])
-def test_job_arr(job, command, njobs, output, err, kwargs, expected):
-    job.nodes = njobs
+def test_job_arr(job, command, array, output, err, kwargs, expected):
     for k, v in kwargs.items():
         setattr(job, k, v)
 
     with mock.patch('subprocess.Popen') as mock_popen:
         mock_popen.return_value.communicate.return_value= (output, err)
-        js = job.submit()
+        js = job.submit(array)
         if err is None:
-            assert mock_popen.call_args_list == [mock.call(['sbatch', '--array', '1-{}'.format(njobs)], stdin=-1, stdout=-1)]
+            assert mock_popen.call_args_list == [mock.call(['sbatch', '--array', array], stdin=-1, stdout=-1)]
             assert expected in js
         else:
             assert js is False

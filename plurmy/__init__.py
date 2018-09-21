@@ -82,21 +82,31 @@ class Slurm(object):
 
 
 
-    def submit(self):
+    def submit(self, array=None):
         """ Submits the slurm job.
 
         Parameters
         ----------
-        None
+        array : str
+            The Slurm formatted specification that describes array attributes.
 
         Returns
         -------
         job_str : str
             The string representation of the sbatch file submitted to slurm.
+        
+
+        Examples
+        --------
+        slurm_job = Slurm('./foo.py')
+        slurm_job.submit()
+        slurm_job.submit("1-6")
+        slurm_job.submit("1-3, 8-9")
+        slurm_job.submit("1-100:2")
         """
         proc = ['sbatch']
-        if self.nodes is not None:
-            proc.extend(('--array', '1-{}'.format(self.nodes)))
+        if array is not None:
+            proc.extend(('--array', array))
         process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         job_str = str(self)
         process.stdin.write(job_str.encode())
@@ -136,16 +146,21 @@ class Slurm(object):
         return d.seconds
     
     def __repr__(self):
-        sbatch = '#SBATCH --{} {}'
+        sbatch = '#SBATCH --{}{}'
         cmd = ['#!/bin/bash -l']
         for k, v in vars(self).items():
             if k.startswith('__') or k == '_command':
                 continue
             else:
                 # Dict items are prefixed with '_' -- get rid of it
-                param = k[1:] if k.startswith('_') else k
+                k = k[1:] if k.startswith('_') else k
                 if v is not None:
                     # Convert python style separators (_) to slurm separators.
-                    cmd.append((sbatch.format(param.replace('_','-'), v)))
+                    k = k.replace('_','-')
+                    # Allow flag specification using empty string.  Necessary to support flags like '--test'
+                    #  that have no arguments.
+                    v = '{sep}{val}'.format(sep = '=' if str(v) else '', val=v)
+                    cmd.append(sbatch.format(k, v))
+                                             
         cmd.append(self.command)
         return '\n'.join(str(s) for s in cmd)
