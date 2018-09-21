@@ -83,7 +83,16 @@ class Slurm(object):
 
 
     def submit(self):
-        """
+        """ Submits the slurm job.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        job_str : str
+            The string representation of the sbatch file submitted to slurm.
         """
         proc = ['sbatch']
         if self.nodes is not None:
@@ -136,6 +145,7 @@ class Slurm(object):
                 # Dict items are prefixed with '_' -- get rid of it
                 param = k[1:] if k.startswith('_') else k
                 if v is not None:
+                    # Convert python style separators (_) to slurm separators.
                     cmd.append((sbatch.format(param.replace('_','-'), v)))
         cmd.append(self.command)
         return '\n'.join(str(s) for s in cmd)
