@@ -1,94 +1,166 @@
 import subprocess
-import textwrap
 import datetime
 
-#TODO: slurm scripts to config
+class Slurm(object):
+    def __init__(self, command, job_name=None, time="01:00:00", output=None, mem_per_cpu=2048, nodes=None, partition=None):
+        self.command = command
+        self.job_name = job_name
+        self.time = time
+        self.output = output
+        self.mem_per_cpu = mem_per_cpu
+        self.nodes = nodes
+        self.partition = partition
 
-slurm_script = textwrap.dedent("""\
-                              #!/bin/bash
-                              #SBATCH -n 1
-                              #SBATCH --mem-per-cpu {}
-                              #SBATCH -J {}
-                              #SBATCH -t {}
-                              #SBATCH -o {}
-                              #SBATCH -p {}
-                              #SBATCH --exclude=neb[17-20],gpu1
-                              source activate {}
-                              {}""")
 
-slurm_array = textwrap.dedent("""\
-                              #!/bin/bash
-                              #SBATCH -n 1
-                              #SBATCH --mem-per-cpu {}
-                              #SBATCH -o {}
-                              #SBATCH -J {}
-                              #SBATCH -t {}
-                              #SBATCH -p {}
-                              #SBATCH --exclude=neb[17-20],gpu1
-                              source activate {}
-                              which python
-                              {}
-""")
+    @property
+    def job_name(self):
+        return getattr(self, '_job_name', None)
 
-def spawn(command, name='AutoCNet', time='01:00:00', outdir='/home/jlaura/autocnet_server/%j.log', mem=2048, queue='shortall', env='root'):
-    """
-    f : str
-        file path
-    """
-    process = subprocess.Popen(['sbatch'], stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE)
-    job_string = slurm_script.format(mem, name, time, outdir, queue, env, command)
-    process.stdin.write(str.encode(job_string))
-    out, err = process.communicate()
-    if err:
-        return False
 
-    # If the job log has the %j character, replace it with the actual job id
-    #try:
-    #job_id = [int(s) for s in out.split() if s.isdigit()][0]
-    #job_string = job_string.replace('%j', '{}'.format(job_id))
-    #except:
-    #    pass
-    return job_string
+    @job_name.setter
+    def job_name(self, job_name):
+        self._job_name = job_name
 
-def spawn_jobarr(command, njobs, name='AutoCNet', time='01:00:00',mem=4096, queue='shortall', outdir=r"slurm-%A_%a.out", env='root'):
+
+    @property
+    def time(self):
+        return getattr(self, '_time', None)
+
+
+    @time.setter
+    def time(self, time):
+        self._time = time
+
+
+    @property
+    def output(self):
+        return getattr(self, '_output', None)
+
+
+    @output.setter
+    def output(self, output):
+        self._output = output
+
+
+    @property
+    def mem_per_cpu(self):
+        return getattr(self, '_mem_per_cpu', 2048)
+
+
+    @mem_per_cpu.setter
+    def mem_per_cpu(self, mem):
+        self._mem_per_cpu = mem
+
+
+    @property
+    def partition(self):
+        return getattr(self, '_partition', None)
+
+
+    @partition.setter
+    def partition(self, partition):
+        self._partition = partition
+
+
+    @property
+    def nodes(self):
+        return getattr(self, '_nodes', None)
+
+
+    @nodes.setter
+    def nodes(self, nodes):
+        self._nodes = nodes
+
+    @property
+    def command(self):
+        return getattr(self, '_command')
+
+
+    @command.setter
+    def command(self, command):
+        self._command = command
+
+
+
+    def submit(self, array=None):
+        """ Submits the slurm job.
+
+        Parameters
+        ----------
+        array : str
+            The Slurm formatted specification that describes array attributes.
+
+        Returns
+        -------
+        job_str : str
+            The string representation of the sbatch file submitted to slurm.
+        
+
+        Examples
+        --------
+        slurm_job = Slurm('./foo.py')
+        slurm_job.submit()
+        slurm_job.submit("1-6")
+        slurm_job.submit("1-3, 8-9")
+        slurm_job.submit("1-100:2")
+        """
+        proc = ['sbatch']
+        if array is not None:
+            proc.extend(('--array', array))
+        process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        job_str = str(self)
+        process.stdin.write(job_str.encode())
+        out, err = process.communicate()
+        if err:
+            return False
+        return job_str
+
+
+    def slurm_walltime_to_seconds(self):
+        """
+        Convert a slurm defined walltime in the form
+        HH:MM:SS into a number of seconds.
+
+        Parameters
+        ----------
+        walltime : str
+                In the form HH:MM:SS
+
+        Returns
+        -------
+        d : int
+            The number of seconds the walltime represents
+
+        Examples
+        >> walltime = '01:00:00'
+        >> sec = slurm_walltime_to_seconds(walltime)
+        >> sec
+        3600
+        """
+        walltime = self.time.split(':')
+        walltime = list(map(int,walltime))
+        d = datetime.timedelta(hours=walltime[0],
+                        minutes=walltime[1],
+                        seconds=walltime[2])
+
+        return d.seconds
     
-    process = subprocess.Popen(['sbatch', '--array', '1-{}'.format(njobs)],
-                                stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE)
-
-    job_string = slurm_array.format(mem, outdir, name, time, queue, env, command)
-    process.stdin.write(str.encode(job_string))
-    out, err = process.communicate()
-    if err:
-        return False
-    return job_string
-
-def slurm_walltime_to_seconds(walltime):
-    """
-    Convert a slurm defined walltime in the form
-    HH:MM:SS into a number of seconds.
-
-    Parameters
-    ----------
-    walltime : str
-               In the form HH:MM:SS
-
-    Returns
-    -------
-    d : int
-        The number of seconds the walltime represents
-
-    Examples
-    >> walltime = '01:00:00'
-    >> sec = slurm_walltime_to_seconds(walltime)
-    >> sec
-    3600
-    """
-    walltime = walltime.split(':')
-    walltime = list(map(int,walltime))
-    d = datetime.timedelta(hours=walltime[0],
-                       minutes=walltime[1],
-                       seconds=walltime[2])
-
-    return d.seconds
+    def __repr__(self):
+        sbatch = '#SBATCH --{}{}'
+        cmd = ['#!/bin/bash -l']
+        for k, v in vars(self).items():
+            if k.startswith('__') or k == '_command':
+                continue
+            else:
+                # Dict items are prefixed with '_' -- get rid of it
+                k = k[1:] if k.startswith('_') else k
+                if v is not None:
+                    # Convert python style separators (_) to slurm separators.
+                    k = k.replace('_','-')
+                    # Allow flag specification using empty string.  Necessary to support flags like '--test'
+                    #  that have no arguments.
+                    v = '{sep}{val}'.format(sep = '=' if str(v) else '', val=v)
+                    cmd.append(sbatch.format(k, v))
+                                             
+        cmd.append(self.command)
+        return '\n'.join(str(s) for s in cmd)
