@@ -39,6 +39,7 @@ class Slurm(object):
 
     @output.setter
     def output(self, output):
+        output = '{}{}'.format(output, '.%A_%a.out')
         self._output = output
 
 
@@ -94,7 +95,7 @@ class Slurm(object):
         -------
         job_str : str
             The string representation of the sbatch file submitted to slurm.
-        
+
 
         Examples
         --------
@@ -144,7 +145,7 @@ class Slurm(object):
                         seconds=walltime[2])
 
         return d.seconds
-    
+
     def __repr__(self):
         sbatch = '#SBATCH --{}{}'
         cmd = ['#!/bin/bash -l']
@@ -161,6 +162,6 @@ class Slurm(object):
                     #  that have no arguments.
                     v = '{sep}{val}'.format(sep = '=' if str(v) else '', val=v)
                     cmd.append(sbatch.format(k, v))
-                                             
+
         cmd.append(self.command)
         return '\n'.join(str(s) for s in cmd)
