@@ -1,6 +1,35 @@
 import subprocess
 import datetime
 
+def slurm_walltime_to_seconds(walltime):
+    """
+    Convert a slurm defined walltime in the form
+    HH:MM:SS into a number of seconds.
+
+    Parameters
+    ----------
+    walltime : str
+            In the form HH:MM:SS
+
+    Returns
+    -------
+    d : int
+        The number of seconds the walltime represents
+
+    Examples
+    >> walltime = '01:00:00'
+    >> sec = slurm_walltime_to_seconds(walltime)
+    >> sec
+    3600
+    """
+    walltime = walltime.split(':')
+    walltime = list(map(int,walltime))
+    d = datetime.timedelta(hours=walltime[0],
+                    minutes=walltime[1],
+                    seconds=walltime[2])
+
+    return d.seconds
+
 class Slurm(object):
     def __init__(self, command, job_name=None, time="01:00:00", output=None, mem_per_cpu=2048, nodes=None, partition=None):
         self.command = command
@@ -115,36 +144,6 @@ class Slurm(object):
         if err:
             return False
         return job_str
-
-
-    def slurm_walltime_to_seconds(self):
-        """
-        Convert a slurm defined walltime in the form
-        HH:MM:SS into a number of seconds.
-
-        Parameters
-        ----------
-        walltime : str
-                In the form HH:MM:SS
-
-        Returns
-        -------
-        d : int
-            The number of seconds the walltime represents
-
-        Examples
-        >> walltime = '01:00:00'
-        >> sec = slurm_walltime_to_seconds(walltime)
-        >> sec
-        3600
-        """
-        walltime = self.time.split(':')
-        walltime = list(map(int,walltime))
-        d = datetime.timedelta(hours=walltime[0],
-                        minutes=walltime[1],
-                        seconds=walltime[2])
-
-        return d.seconds
 
     def __repr__(self):
         sbatch = '#SBATCH --{}{}'
