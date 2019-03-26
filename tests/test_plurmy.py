@@ -15,9 +15,9 @@ def job():
                           ('00:00:60', 60),
                           ('00:00:90', 90)
                           ])
-def test_slurm_walltime_to_seconds(job, time, expected):
-    job.time = time
-    assert job.slurm_walltime_to_seconds() == expected
+def test_slurm_walltime_to_seconds(time, expected):
+    assert plurmy.slurm_walltime_to_seconds(time) == expected
+
 @pytest.mark.parametrize("command, output, err, kwargs, expected",
                          [('foo', '', None, {}, 'foo'), # Check command is passing
                           ('foo', '', None, {'name':'SpecialJob'}, 'SpecialJob'),
