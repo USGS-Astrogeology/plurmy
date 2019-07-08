@@ -112,14 +112,18 @@ class Slurm(object):
 
 
 
-    def submit(self, array=None):
+    def submit(self, array=None, chunksize=1000):
         """ Submits the slurm job.
 
         Parameters
         ----------
         array : str
-            The Slurm formatted specification that describes array attributes.
+                The Slurm formatted specification that describes array attributes.
 
+        chunksize : int
+                    The number of jobs that can be submitted per job array. The
+                    slurm default is 1001. This number is cluster configuration
+                    dependent.
         Returns
         -------
         job_str : str
@@ -132,17 +136,40 @@ class Slurm(object):
         slurm_job.submit()
         slurm_job.submit("1-6")
         slurm_job.submit("1-3, 8-9")
-        slurm_job.submit("1-100:2")
         """
-        proc = ['sbatch']
+        
         if array is not None:
-            proc.extend(('--array', array))
-        process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        job_str = str(self)
-        process.stdin.write(job_str.encode())
-        out, err = process.communicate()
-        if err:
-            return False
+            arrays = []
+            for extent in array.split(','):
+                start, stop = list(map(int, extent.split('-')))
+                if stop - start > chunksize:
+                    starts = list(range(start, stop, chunksize))
+                    stops = list(range(start + chunksize, stop, chunksize)) + [stop+1]  # +1 so that we get the last job
+                    offsets = zip(starts, stops)
+                    # -1 so that the last job in the preceding set does not overlap the first job in this set
+                    arrays += map(lambda x:f'{x[0]}-{x[1]-1}', offsets)  
+                else:
+                    arrays.append(f'{start}-{stop}')
+            arrays = ','.join(arrays)
+
+            for array in arrays:
+                proc = ['sbatch']
+                proc.extend(('--array', array))
+
+                process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                job_str = str(self)
+                process.stdin.write(job_str.encode())
+                out, err = process.communicate()
+                if err:
+                    return False
+        else:
+            proc = ['sbatch']
+            process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            job_str = str(self)
+            process.stdin.write(job_str.encode())
+            out, err = process.communicate()
+            if err:
+                return False
         return job_str
 
     def __repr__(self):
