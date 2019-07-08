@@ -40,7 +40,6 @@ class Slurm(object):
         self.nodes = nodes
         self.partition = partition
 
-
     @property
     def job_name(self):
         return getattr(self, '_job_name', None)
@@ -120,10 +119,6 @@ class Slurm(object):
         array : str
                 The Slurm formatted specification that describes array attributes.
 
-        chunksize : int
-                    The number of jobs that can be submitted per job array. The
-                    slurm default is 1001. This number is cluster configuration
-                    dependent.
         Returns
         -------
         job_str : str
@@ -138,19 +133,26 @@ class Slurm(object):
         slurm_job.submit("1-3, 8-9")
         """
         
-        if array is not None:
-            arrays = []
-            for extent in array.split(','):
+        if array is not None:                                                   
+            arrays = []                                                         
+            for extent in array.split(','):                    
+                # Map the strings to ints for math
                 start, stop = list(map(int, extent.split('-')))
+                # Case where the total number of jobs is > the chunk size
                 if stop - start > chunksize:
-                    starts = list(range(start, stop, chunksize))
-                    stops = list(range(start + chunksize, stop, chunksize)) + [stop+1]  # +1 so that we get the last job
-                    offsets = zip(starts, stops)
-                    # -1 so that the last job in the preceding set does not overlap the first job in this set
-                    arrays += map(lambda x:f'{x[0]}-{x[1]-1}', offsets)  
-                else:
+                    current = 0
+                    # Need to make arrays in the form 1-chunksize until we get to the final
+                    # iteration where number jobs is < chunk size.
+                    while current < stop:
+                        if current + chunksize > stop:
+                            arrays.append(f'1-{stop-current+1}')
+                            current = stop
+                        else:
+                            arrays.append(f'1-{chunksize+1}')
+                            current += chunksize      
+                # Total number of jobs is < the chunk size
+                else:                                                           
                     arrays.append(f'{start}-{stop}')
-            arrays = ','.join(arrays)
 
             for array in arrays:
                 proc = ['sbatch']
@@ -184,7 +186,8 @@ class Slurm(object):
                 if v is not None:
                     # Convert python style separators (_) to slurm separators.
                     k = k.replace('_','-')
-                    # Allow flag specification using empty string.  Necessary to support flags like '--test'
+                    # Allow flag specification using empty string.  Necessary
+                    # to support flags like '--test'
                     #  that have no arguments.
                     v = '{sep}{val}'.format(sep = '=' if str(v) else '', val=v)
                     cmd.append(sbatch.format(k, v))
