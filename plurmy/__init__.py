@@ -134,10 +134,19 @@ class Slurm(object):
         """
         
         if array is not None:                                                   
-            arrays = []                                                         
+            arrays = []
+            # Parse out the array max concurrent job string
+            if '%' in array:
+                array, step = array.split('%')
+            else:
+                step = None
+            # Parse if different array job ids have been manually specified
+            splits = array.split(',')
+                                                                     
             for extent in array.split(','):                    
                 # Map the strings to ints for math
                 start, stop = list(map(int, extent.split('-')))
+                
                 # Case where the total number of jobs is > the chunk size
                 if stop - start > chunksize:
                     current = 0
@@ -145,14 +154,23 @@ class Slurm(object):
                     # iteration where number jobs is < chunk size.
                     while current < stop:
                         if current + chunksize > stop:
-                            arrays.append(f'1-{stop-current+1}')
+                            if step:
+                                arrays.append(f'1-{stop-current+1}%{step}')
+                            else:
+                                arrays.append(f'1-{stop-current+1}')
                             current = stop
                         else:
-                            arrays.append(f'1-{chunksize+1}')
+                            if step:
+                                arrays.append(f'1-{chunksize+1}%{step}')
+                            else:
+                                arrays.append(f'1-{chunksize+1}')
                             current += chunksize      
                 # Total number of jobs is < the chunk size
-                else:                                                           
-                    arrays.append(f'{start}-{stop}')
+                else:                                                 
+                    if step:
+                        arrays.append(f'{start}-{stop}%{step}')
+                    else:
+                        arrays.append(f'{start}-{stop}')
 
             for array in arrays:
                 proc = ['sbatch']
@@ -164,6 +182,7 @@ class Slurm(object):
                 out, err = process.communicate()
                 if err:
                     return False
+            return job_str
         else:
             proc = ['sbatch']
             process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
