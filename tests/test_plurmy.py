@@ -43,7 +43,7 @@ def test_spawn(job, command, output, err, kwargs, expected):
 
 @pytest.mark.parametrize("command, array, output, err, kwargs, expected",
                          [('foo', "1-2", '', None, {}, 'foo'), # Check command is passing
-                          ('foo', "1-3, 5-8", '', None, {'name':'SpecialJob'}, 'SpecialJob'),
+                          ('foo', "1-3,5-8", '', None, {'name':'SpecialJob'}, 'SpecialJob'),
                           ('foo', "1-400%2", '', None, {'time':'00:00:60'}, '00:00:60'),
                           ('foo', "1-50", '', None, {'outdir':'/mi/casa'}, '/mi/casa'),
                           ('foo', "1", '', None, {'mem':4096}, '4096'),
@@ -61,8 +61,18 @@ def test_job_arr(job, command, array, output, err, kwargs, expected):
         js = job.submit(array=array)
         arrays = array.split(',')
         if err is None:
+            calls = []
             for arr in array.split(','):
-                assert mock_popen.call_args_list == [mock.call(['sbatch', '--array', arr], stdin=-1, stdout=-1)]
-            assert expected in js
+                calls.append(mock.call(['sbatch', '--array', arr], stdin=-1, stdout=-1))
+            if len(arr.split('-')) == 1:
+                assert mock_popen.call_args_list == [mock.call(['sbatch'], stdin=-1, stdout=-1)]
+            else:
+                for i in range(len(calls)):
+                    assert mock_popen.call_args_list[i] == calls[i]
+            if isinstance(js, list):
+                for j in js:
+                    assert expected in j
+            else:
+                assert expected in js
         else:
             assert js is False

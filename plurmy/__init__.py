@@ -109,7 +109,15 @@ class Slurm(object):
     def command(self, command):
         self._command = command
 
-
+    def _submit_one(self):
+        proc = ['sbatch']
+        process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        job_str = str(self)
+        process.stdin.write(job_str.encode())
+        out, err = process.communicate()
+        if err:
+            return False
+        return job_str
 
     def submit(self, array=None, chunksize=1000):
         """ Submits the slurm job.
@@ -133,7 +141,10 @@ class Slurm(object):
         slurm_job.submit("1-3, 8-9")
         """
         
-        if array is not None:                                                   
+        if array == None:
+            return self._submit_one()
+        else:     
+            job_strs = []
             arrays = []
             # Parse out the array max concurrent job string
             if '%' in array:
@@ -141,12 +152,14 @@ class Slurm(object):
             else:
                 step = None
             # Parse if different array job ids have been manually specified
-            splits = array.split(',')
-                                                                     
-            for extent in array.split(','):                    
-                # Map the strings to ints for math
-                start, stop = list(map(int, extent.split('-')))
                 
+            splits = array.split(',')
+            for extent in splits:                    
+                # Map the strings to ints for math
+                try:
+                    start, stop = list(map(int, extent.split('-')))
+                except:
+                    return self._submit_one()
                 # Case where the total number of jobs is > the chunk size
                 if stop - start > chunksize:
                     current = 0
@@ -178,21 +191,13 @@ class Slurm(object):
 
                 process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 job_str = str(self)
+                job_strs.append(job_str)
                 process.stdin.write(job_str.encode())
                 out, err = process.communicate()
                 if err:
                     return False
-            return job_str
-        else:
-            proc = ['sbatch']
-            process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-            job_str = str(self)
-            process.stdin.write(job_str.encode())
-            out, err = process.communicate()
-            if err:
-                return False
-        return job_str
-
+        return job_strs
+        
     def __repr__(self):
         sbatch = '#SBATCH --{}{}'
         cmd = ['#!/bin/bash -l']
