@@ -1,6 +1,8 @@
 import subprocess
 import datetime
 
+
+
 def slurm_walltime_to_seconds(walltime):
     """
     Convert a slurm defined walltime in the form
@@ -152,7 +154,6 @@ class Slurm(object):
             else:
                 step = None
             # Parse if different array job ids have been manually specified
-                
             splits = array.split(',')
             for extent in splits:                    
                 # Map the strings to ints for math
@@ -162,28 +163,22 @@ class Slurm(object):
                     return self._submit_one()
                 # Case where the total number of jobs is > the chunk size
                 if stop - start > chunksize:
-                    current = 0
-                    # Need to make arrays in the form 1-chunksize until we get to the final
-                    # iteration where number jobs is < chunk size.
-                    while current < stop:
-                        if current + chunksize > stop:
-                            if step:
-                                arrays.append(f'1-{stop-current+1}%{step}')
-                            else:
-                                arrays.append(f'1-{stop-current+1}')
-                            current = stop
-                        else:
-                            if step:
-                                arrays.append(f'1-{chunksize+1}%{step}')
-                            else:
-                                arrays.append(f'1-{chunksize+1}')
-                            current += chunksize      
-                # Total number of jobs is < the chunk size
-                else:                                                 
+                    quot, rem = divmod(stop-start, chunksize)
+                    arrays = [f'1-{chunksize+1}']
                     if step:
-                        arrays.append(f'{start}-{stop}%{step}')
-                    else:
-                        arrays.append(f'{start}-{stop}')
+                        arrays[0] += f'%{step}' 
+                    arrays = arrays*quot
+                    if rem:
+                        remainder = f'1-{rem+1}'
+                        if step:
+                            remainder += f'%{step}'
+                        arrays.append(remainder)     
+                # Total number of jobs is < the chunk size
+                else:
+                    inbounds = f'{start}-{stop}' 
+                    if step:
+                        inbounds += f'%{step}'                                       
+                    arrays.append(inbounds)
 
             for array in arrays:
                 proc = ['sbatch']
