@@ -121,7 +121,7 @@ class Slurm(object):
             return False
         return job_str
 
-    def submit(self, array=None, chunksize=1000):
+    def submit(self, array=None, chunksize=1000, exclude=None):
         """ Submits the slurm job.
 
         Parameters
@@ -142,10 +142,10 @@ class Slurm(object):
         slurm_job.submit("1-6")
         slurm_job.submit("1-3, 8-9")
         """
-        
+
         if array == None:
             return self._submit_one()
-        else:     
+        else:
             job_strs = []
             arrays = []
             # Parse out the array max concurrent job string
@@ -155,7 +155,7 @@ class Slurm(object):
                 step = None
             # Parse if different array job ids have been manually specified
             splits = array.split(',')
-            for extent in splits:                    
+            for extent in splits:
                 # Map the strings to ints for math
                 try:
                     start, stop = list(map(int, extent.split('-')))
@@ -166,19 +166,24 @@ class Slurm(object):
                     quot, rem = divmod(stop-start, chunksize)
                     arrays = [f'1-{chunksize+1}']
                     if step:
-                        arrays[0] += f'%{step}' 
+                        arrays[0] += f'%{step}'
                     arrays = arrays*quot
                     if rem:
                         remainder = f'1-{rem+1}'
                         if step:
                             remainder += f'%{step}'
-                        arrays.append(remainder)     
+                        arrays.append(remainder)
                 # Total number of jobs is < the chunk size
                 else:
-                    inbounds = f'{start}-{stop}' 
+                    inbounds = f'{start}-{stop}'
                     if step:
-                        inbounds += f'%{step}'                                       
+                        inbounds += f'%{step}'
                     arrays.append(inbounds)
+
+            if exclude is not None:
+                proc = ['sbatch', '--exclude={}'.format(exclude)]
+            else:
+                proc = ['sbatch']
 
             for array in arrays:
                 proc = ['sbatch']
@@ -192,7 +197,7 @@ class Slurm(object):
                 if err:
                     return False
         return job_strs
-        
+
     def __repr__(self):
         sbatch = '#SBATCH --{}{}'
         cmd = ['#!/bin/bash -l']
