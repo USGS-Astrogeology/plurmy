@@ -1,6 +1,8 @@
 import subprocess
 import datetime
 
+
+
 def slurm_walltime_to_seconds(walltime):
     """
     Convert a slurm defined walltime in the form
@@ -39,7 +41,6 @@ class Slurm(object):
         self.mem_per_cpu = mem_per_cpu
         self.nodes = nodes
         self.partition = partition
-
 
     @property
     def job_name(self):
@@ -110,15 +111,23 @@ class Slurm(object):
     def command(self, command):
         self._command = command
 
+    def _submit_one(self):
+        proc = ['sbatch']
+        process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        job_str = str(self)
+        process.stdin.write(job_str.encode())
+        out, err = process.communicate()
+        if err:
+            return False
+        return job_str
 
-
-    def submit(self, array=None):
+    def submit(self, array=None, chunksize=1000):
         """ Submits the slurm job.
 
         Parameters
         ----------
         array : str
-            The Slurm formatted specification that describes array attributes.
+                The Slurm formatted specification that describes array attributes.
 
         Returns
         -------
@@ -132,19 +141,58 @@ class Slurm(object):
         slurm_job.submit()
         slurm_job.submit("1-6")
         slurm_job.submit("1-3, 8-9")
-        slurm_job.submit("1-100:2")
         """
-        proc = ['sbatch']
-        if array is not None:
-            proc.extend(('--array', array))
-        process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        job_str = str(self)
-        process.stdin.write(job_str.encode())
-        out, err = process.communicate()
-        if err:
-            return False
-        return job_str
+        
+        if array == None:
+            return self._submit_one()
+        else:     
+            job_strs = []
+            arrays = []
+            # Parse out the array max concurrent job string
+            if '%' in array:
+                array, step = array.split('%')
+            else:
+                step = None
+            # Parse if different array job ids have been manually specified
+            splits = array.split(',')
+            for extent in splits:                    
+                # Map the strings to ints for math
+                try:
+                    start, stop = list(map(int, extent.split('-')))
+                except:
+                    return self._submit_one()
+                # Case where the total number of jobs is > the chunk size
+                if stop - start > chunksize:
+                    quot, rem = divmod(stop-start, chunksize)
+                    arrays = [f'1-{chunksize+1}']
+                    if step:
+                        arrays[0] += f'%{step}' 
+                    arrays = arrays*quot
+                    if rem:
+                        remainder = f'1-{rem+1}'
+                        if step:
+                            remainder += f'%{step}'
+                        arrays.append(remainder)     
+                # Total number of jobs is < the chunk size
+                else:
+                    inbounds = f'{start}-{stop}' 
+                    if step:
+                        inbounds += f'%{step}'                                       
+                    arrays.append(inbounds)
 
+            for array in arrays:
+                proc = ['sbatch']
+                proc.extend(('--array', array))
+
+                process = subprocess.Popen(proc, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                job_str = str(self)
+                job_strs.append(job_str)
+                process.stdin.write(job_str.encode())
+                out, err = process.communicate()
+                if err:
+                    return False
+        return job_strs
+        
     def __repr__(self):
         sbatch = '#SBATCH --{}{}'
         cmd = ['#!/bin/bash -l']
@@ -157,7 +205,8 @@ class Slurm(object):
                 if v is not None:
                     # Convert python style separators (_) to slurm separators.
                     k = k.replace('_','-')
-                    # Allow flag specification using empty string.  Necessary to support flags like '--test'
+                    # Allow flag specification using empty string.  Necessary
+                    # to support flags like '--test'
                     #  that have no arguments.
                     v = '{sep}{val}'.format(sep = '=' if str(v) else '', val=v)
                     cmd.append(sbatch.format(k, v))
