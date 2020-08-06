@@ -162,14 +162,14 @@ class Slurm(object):
                 except:
                     return self._submit_one()
                 # Case where the total number of jobs is > the chunk size
-                if stop - start > chunksize:
-                    quot, rem = divmod(stop-start, chunksize)
-                    arrays = [f'1-{chunksize+1}']
+                if stop - start + 1 > chunksize:
+                    quot, rem = divmod(stop-start+1, chunksize)
+                    arrays = [f'1-{chunksize}']
                     if step:
                         arrays[0] += f'%{step}'
                     arrays = arrays*quot
                     if rem:
-                        remainder = f'1-{rem+1}'
+                        remainder = f'1-{rem}'
                         if step:
                             remainder += f'%{step}'
                         arrays.append(remainder)
